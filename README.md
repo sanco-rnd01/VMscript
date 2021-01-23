@@ -13,8 +13,8 @@ Release **1.31a** (23 January 2021) Demiglass
 | **`mmc_build`** | iap-linuxFS uSD builder | *ghost* |
 | **`mmc_imager`** | iap-linuxFS uSD local image creator | *red fish* |
 | **`mmc_compare`** | iap-linuxFS uSD 2 way local images comparator | *blue fish* |
-| **`supercopy`** | local | linuxFS filesystem copy with xattr preservation | *died paradigma* |
-| **`fb_convert`** | local | PNG to framebuffer RAW format image converter | *men at work* |
+| **`supercopy`** | linuxFS filesystem copy with xattr preservation | *died paradigma* |
+| **`fb_convert`** | PNG to framebuffer RAW format image converter | *men at work* |
 
 #### Dependencies
 ***
