@@ -1,0 +1,104 @@
+#!/bin/bash
+################################################################################
+# iap-linuxFS - MMC TMP-Imager Compare Script (gtk3 version)
+#
+# developed using Ubuntu 16.04.6 LTS
+# revision 1.02a [demiglass]
+# Paolo Golzi 2020-05-03
+#
+dbus-launch notify-send 'iap-linuxFS' 'TMP-Image Compare rev 1.02a [GTK 3+]' \
+-i /home/sanco/.local/share/icons/buuf/fish-blue.png
+################################################################################
+
+################################################################################
+### DEFINITIONS AND VARIABLES COMPUTATION
+################################################################################
+### Fixed Definitions ----------------------------------------------------------
+userdir=$(grep 1000 /etc/passwd | cut -f6 -d":")
+BASEDIR="${userdir}/Scrivania/iAP-develop/linuxFS"
+TRUST="${BASEDIR}/iap-linuxFS/"
+TMPDIR="${BASEDIR}/tmp"
+### Discover last Image Folder ---------------------------------------
+cd $TMPDIR
+last=$(ls -1p | grep "_image/" | tail -1 | cut -c1-25)
+
+### Dialog Window Related ------------------------------------------------------
+### gtk 3+ requires dialog windows to have a parent application window...
+###  so alias <zenity> in version 3.18.1.1
+### We may need to call: [dbus-launch] for acquire session and display
+###  for graphical applications to work correctly...
+zenity(){
+  /usr/bin/zenity "$@" 2>/dev/null
+}
+title_dialog="iap-linuxFS :: tmp-image compare 1.02a"
+### spaces -----------------------------------------------------------
+### target size:500x100
+sp05="     "
+sp10="          "
+sp15=${sp05}${sp10}
+sp20=${sp10}${sp10}
+sp30=${sp15}${sp15}
+sp40=${sp20}${sp20}
+sp45=${sp40}${sp05}
+sp50=${sp10}${sp40}
+
+################################################################################
+### FUNCTIONS
+################################################################################
+### EXIT: Root Privileges needed -----------------------------------------------
+su_check(){
+if [ `id -u` != 0 ]; then
+  zenity --width=458 --height=180 --window-icon=error --error \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\n<b>Root Privileges needed!</b>\n\
+<i>\n  You need Superuser privileges to run this program</i>\
+<i>\n  log as [root] and try again...</i>" \
+--ok-label="Exit";
+  exit 1
+fi
+}
+
+### EXIT: Hardware not Found ---------------------------------------------------
+not_found_exit(){
+zenity --width=458 --height=180 --window-icon=error --error \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\n<b>Temporary [iap-linuxFS] image not found!</b>\n\
+<i>\n  You need to create a temporary image to compare filesystem,</i>\
+<i>\n  please use first <b>mmc-imager</b> script.</i>" \
+--ok-label="Exit";
+exit 1
+}
+
+### Verify Temporary Folder Image ----------------------------------------------
+verify_img(){
+  if [ -z "$last" ]; then
+    not_found_exit;
+  fi
+  zenity --width=470 --height=180 --window-icon=question --info \
+--icon-name=gparted \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\n<b>Temporary [iap-linuxFS] image found.</b>\n\
+<i>\n  Last valid image located on <b>$last</b></i>\
+<i>\n  will be compared with <b>release</b> filesystem.</i>" \
+--extra-button="Exit" \
+--ok-label="${sp50}Proceed${sp50}"; value=$(echo $?)
+
+  if [[ "$value" = "1" ]]; then
+    exit 3
+  fi
+}
+
+################################################################################
+### MAIN (GTK 3+ functional core)
+################################################################################
+su_check
+verify_img
+### Launch Meld ------------------------------------------------------
+meld --diff $TRUST "$TMPDIR/$last"
+
+exit 0
+################################################################################
+#EOF

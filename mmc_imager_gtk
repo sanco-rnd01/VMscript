@@ -1,0 +1,247 @@
+#!/bin/bash
+################################################################################
+# iap-linuxFS - MMC TMP-Imager Script (gtk3 version)
+#
+# developed using Ubuntu 16.04.6 LTS
+# revision 1.02a [demiglass]
+# Paolo Golzi 2020-05-03
+#
+dbus-launch notify-send 'iap-linuxFS' 'MMC TMP-Imager rev 1.02a [GTK 3+]' \
+-i /home/sanco/.local/share/icons/buuf/fish-orange.png
+################################################################################
+
+################################################################################
+### DEFINITIONS AND VARIABLES COMPUTATION
+################################################################################
+### Fixed Definitions ----------------------------------------------------------
+userdir=$(grep 1000 /etc/passwd | cut -f6 -d":")
+BASEDIR="${userdir}/Scrivania/iAP-develop/linuxFS"
+TRUST="${BASEDIR}/iap-linuxFS/"
+TMPDIR="${BASEDIR}/tmp"
+rfc_date=$(date --rfc-3339=s | sed 's/ /_/' | cut -c1-19)
+DEST="${TMPDIR}/${rfc_date}_image/"
+
+### Discover [iap-linuxFS] MMC Card --------------------------------------------
+###  if mounted assign Source Filesystem 
+###  tipical: "/media/sanco/iap-linuxFS/"
+mountpoint=$(mount | grep iap-linuxFS | cut -f3 -d" ")
+if [ ! -z "$mountpoint" ]; then
+  SOURCES="$mountpoint/"
+else
+  mountpoint="none"
+fi
+
+### Source Filesystem Size -------------------------------------------
+dim_files=$(du -bx --summarize ${SOURCES} | cut -d "/" -f1)
+#size_tot_GiB="$(bc <<< "scale=2; $(du -xB1M --summarize ${SOURCES} | cut -d "/" -f1) /1000") GiB"
+### Source Total Number of Files -------------------------------------
+tot_files=$(( $(find ${SOURCES} | wc -l) -1 ))              # exclude first recursion
+#tot_files=$(find ${SOURCES} ! -type l | wc -l)              # compute without symlinks...
+
+### from subshell mtab read was confined locally (so eval global) --------------
+#MNT_DEST=$(cat $tmp_file)
+#tmp_file="/tmp/mmc_imager_gtk.tmp"
+
+### ----------------------------------------------------------------------------
+
+### Dialog Window Related ------------------------------------------------------
+### gtk 3+ requires dialog windows to have a parent application window...
+###  so alias <zenity> in version 3.18.1.1
+### We may need to call: [dbus-launch] for acquire session and display
+###  for graphical applications to work correctly...
+zenity(){
+  /usr/bin/zenity "$@" 2>/dev/null
+}
+title_dialog="iap-linuxFS :: mmc tmp-imager 1.02a"
+### spaces -----------------------------------------------------------
+### target size:500x100
+sp05="     "
+sp10="          "
+sp15=${sp05}${sp10}
+sp20=${sp10}${sp10}
+sp30=${sp15}${sp15}
+sp40=${sp20}${sp20}
+sp45=${sp40}${sp05}
+sp50=${sp10}${sp40}
+
+################################################################################
+### FUNCTIONS
+################################################################################
+### Welcome Message ------------------------------------------------------------
+#welcome_message(){}
+
+### EXIT: Root Privileges needed -----------------------------------------------
+su_check(){
+if [ `id -u` != 0 ]; then
+  zenity --width=458 --height=180 --window-icon=error --error \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\n<b>Root Privileges needed!</b>\n\
+<i>\n  You need Superuser privileges to run this program</i>\
+<i>\n  log as [root] and try again...</i>" \
+--ok-label="Exit";
+  exit 1
+fi
+}
+
+### EXIT: Hardware not Found ---------------------------------------------------
+not_found_exit(){
+zenity --width=458 --height=180 --window-icon=error --error \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\n<b>MMC [iap-linuxFS] device not found!</b>\n\
+<i>\n  Please check that microSD memory card was inserted</i>\
+<i>\n  and/or correctly mounted.</i>" \
+--ok-label="Exit";
+exit 1
+}
+
+### HW Discover Need to be Verified by User ------------------------------------
+request_verify_mmc(){
+  if [[ $mountpoint = "none" ]]; then
+    not_found_exit;
+  fi
+  zenity --width=470 --height=180 --window-icon=question --info \
+--icon-name=gparted \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\n<b>Please verify the informations...</b>\n\
+<i>\n  Physical MMC device mounted on <b>$mountpoint</b></i>\
+<i>\n  will be used as a SOURCE filesystem for temporary images.</i>" \
+--extra-button="Exit" \
+--ok-label="${sp50}Proceed${sp50}"; value=$(echo $?)
+
+  if [[ "$value" = "1" ]]; then
+    exit 3
+  fi
+}
+
+################################################################################
+### <awk> language program functions
+### manage output messages from <rsync> or <cp> to conform <zenity> gtk dialog
+###
+### consider cumpute percentage from sum bytes trasferred / total bytes:
+### valid for [rsync -v -- progress] stdout stream
+### RSYNC | awk '/xfr#/ {print $(NF-5)};' | awk '/[0-9]/{gsub(/,/,"")};1' | awk '{SUM+=$0} END {print SUM}'
+###
+### Credit Link:
+### https://github.com/angryziber/rsync-zenity/blob/master/rsync-zenity.sh
+################################################################################
+rsync_progress_awk="{
+if (\$0 ~ /bin|boot|dev|etc|home|lib|mnt|opt|proc|root|sbin|sys|tmp|usr|var/) {
+  if (percentage < 100) {
+    num_files++;
+    }
+  percentage=num_files/$tot_files*100;
+  print \"#Please wait while trasferring [iap-linuxFS] filesystem...\\\n \" num_files \"/\" $tot_files \" files\\\n \" percentage \"%\";
+  print percentage \"%\";
+  }
+fflush();
+}
+END {
+print \"#Done. \\\n \" $tot_files \" files trasferred successfully!\\\n \";
+print system(\"sleep 1\");
+print \"100\"
+}"
+################################################################################
+cp_progress_awk="{
+if (NR > 0) {
+  if (percentage < 100) {
+    num_files=NR;
+    }
+  percentage=num_files/$tot_files*100;
+  print \"#Please wait while trasferring [iap-linuxFS] filesystem...\\\n \" num_files \"/\" $tot_files \" files\\\n \" percentage \"%\";
+  print percentage \"%\";
+  }
+fflush();
+}
+END {
+print \"#Done. \\\n \" $tot_files \" files trasferred successfully!\\\n \";
+print system(\"sleep 1\");
+print \"100\"
+}"
+################################################################################
+
+### Xfer Filesystem using RSYNC ------------------------------------------------
+rsync_file_transfer(){
+### import DEST mount from temporary file ------------------
+#  DEST=$(cat $tmp_file)
+### create DEST target folder ------------------------------
+  mkdir $DEST
+### graphical loop -----------------------------------------
+  (sleep .5
+  for sub in bin boot dev etc lib sbin mnt sys usr opt root var proc tmp home
+    do
+    ### Loop Folder Message ------------------------------------------
+      #echo -ne "#- trasferring folder [/${sub}]\n\n"
+    ### RSYNC [handle xattr, test with --dry-run] --------------------
+      rsync -avxHAWX --numeric-ids --progress ${SOURCES}${sub} ${DEST}
+    ### Data Syncronization [optional <sub> commit here] -------------
+      #sync
+    done) | awk "$rsync_progress_awk" | zenity --progress --width=550 --no-cancel --auto-close \
+--title="${title_dialog}" \
+--text="Scanning...\n\n" \
+--percentage=0
+}
+
+### Xfer Filesystem using [SCP] ------------------------------------------------
+cp_file_transfer(){
+### import DEST mount from temporary file ------------------
+#  DEST=$(cat $tmp_file)
+### create DEST target folder ------------------------------
+  mkdir $DEST
+### graphical loop -----------------------------------------
+  (sleep .5
+  for sub in bin boot dev etc lib sbin mnt sys usr opt root var proc tmp home
+    do
+    ### Loop Folder Message ------------------------------------------
+      #echo -ne "#- trasferring folder [/${sub}]\n\n"
+    ### CP [handle sparse and xattr] ---------------------------------
+    ### https://wiki.archlinux.org/index.php/Sparse_file
+      cp -av --sparse=always ${SOURCES}${sub} ${DEST}
+    ### Data Syncronization [optional <sub> commit here] -------------
+      #sync
+    done) | awk "$cp_progress_awk" | zenity --progress --width=550 --no-cancel --auto-close \
+--title="${title_dialog}" \
+--text="Scanning...\n\n" \
+--percentage=0
+}
+
+### Syncing Filesystem ---------------------------------------------------------
+sync_fs(){
+  (sync && sync && sleep 3 && echo -n 100) | zenity --progress --width=550 --no-cancel --auto-close --pulsate \
+--title="${title_dialog}" \
+--text="Syncronizing MMC filesystem...\n\n" \
+--percentage=0
+### remove temporary file ----------------------------------
+  rm -f $tmp_file
+}
+
+### Exit Message ---------------------------------------------------------------
+done_message(){
+  zenity --width=470 --height=180 --window-icon=info --info \
+--icon-name=user-bookmarks \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\n<b>All operations completed succesfully...</b>\n\
+<i>\n  Temporary [iap-linuxFS] MMC image created.</i>\
+<i>\n  Please wait while loading Meld...</i>\
+<i>\n</i>"
+}
+
+
+################################################################################
+### MAIN (GTK 3+ functional core)
+################################################################################
+###! welcome_message
+su_check
+request_verify_mmc
+#rsync_file_transfer
+cp_file_transfer
+sync_fs
+done_message
+meld --diff $TRUST $DEST
+
+exit 0
+################################################################################
+#EOF

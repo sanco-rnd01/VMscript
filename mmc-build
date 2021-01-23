@@ -1,0 +1,656 @@
+#!/bin/bash
+################################################################################
+# iap-linuxFS - MMC Builder Script (gtk3 version)
+#
+# developed using Ubuntu 16.04.6 LTS
+# revision 1.31a [demiglass]
+# Paolo Golzi 2020-11-18
+#
+dbus-launch notify-send 'iap-linuxFS' 'MMC Builder rev 1.31a [GTK 3+]' \
+-i /home/sanco/.local/share/icons/buuf/lightbulb-vertical.png
+################################################################################
+
+### Dialog Window Related ------------------------------------------------------
+### gtk 3+ requires dialog windows to have a parent application window...
+###  so alias <zenity> in version 3.18.1.1 to avoid warnings
+### We may need to call: [dbus-launch] for acquire session and display
+###  for graphical applications to work correctly...
+zenity(){
+  /usr/bin/zenity --name="mmc-build" "$@" 2>/dev/null
+}
+title_dialog="iap-linuxFS :: mmc builder 1.31a"
+### spaces -----------------------------------------------------------
+### target size:500x100
+sp05="     "
+sp10="          "
+sp15=${sp05}${sp10}
+sp20=${sp10}${sp10}
+sp30=${sp15}${sp15}
+sp40=${sp20}${sp20}
+sp45=${sp40}${sp05}
+sp50=${sp10}${sp40}
+
+################################################################################
+### WORKFOLDER AND FILES DEFINITIONS
+################################################################################
+### Auto Discover [iAP-develop] base folder ------------------------------------
+actual_path=$(pwd)
+search_path=$(find -type d -name 'iAP-develop' 2>/dev/null | cut -d'.' -f2)
+BASE_PATH="${actual_path}${search_path}"
+### Static Map [iAP-develop] work subfolders -----------------------------------
+iAP_BOOT_PATH="${BASE_PATH}/bootloader/iap-bootloader"
+iAP_SHPI_PATH="${BASE_PATH}/shpi/iap-SHPI"
+iAP_FS_PATH="${BASE_PATH}/linuxFS/iap-linuxFS"
+SCRIPT_PATH="${BASE_PATH}/script/VMscript"
+### Static Map files -----------------------------------------------------------
+BOOT_IMG="${iAP_BOOT_PATH}/boot_5Mnp_1.09b.img"
+log_file="${BASE_PATH}/iap_pathfinder.lst"
+### Subshell reads from <mtab> was confined locally (so eval global)
+###  using tmp file import/export: MNT_DEST=$(cat $tmp_file)
+tmp_file="/tmp/mmc_build_gtk.tmp"
+
+### Manage [pathfinder] logfile ------------------------------------------------
+launch_time=$(date --rfc-3339=s | cut -d'+' -f1)
+### first echo operation redirects to file so completely destroy its content,
+###  subsequent operations appends lines to file...
+echo "######################################################################"  > ${log_file}
+echo "# iap-linuxFS :: MMC Builder rev 1.31a [GTK 3+]" >> ${log_file}
+echo "# - last script execution ${launch_time}"        >> ${log_file}
+echo "######################################################################" >> ${log_file}
+echo ""  >> ${log_file}
+chown sanco:sanco ${log_file}
+
+echo "# [iAP-develop] absolute path list summary ---------------------------" >> ${log_file}
+echo ${iAP_BOOT_PATH} >> ${log_file}
+echo ${iAP_FS_PATH}   >> ${log_file}
+echo ${iAP_SHPI_PATH} >> ${log_file}
+echo ${SCRIPT_PATH}   >> ${log_file}
+echo ""  >> ${log_file}
+echo "# System wide import/export temporary file ---------------------------" >> ${log_file}
+echo ${tmp_file} >> ${log_file}
+echo ""  >> ${log_file}
+
+### Collect user settings ------------------------------------------------------
+echo "# Collected User Settings --------------------------------------------" >> ${log_file}
+### [BOOT_IMG] file --------------------------------------------------
+BOOT_IMG=$(zenity --title="Select/Confirm iAP BOOTLOADER image..." \
+--width=1000 --height=900 \
+--file-selection \
+--filename="${BOOT_IMG}";)
+if [[ "$BOOT_IMG" = "" ]]; then
+  echo "[EXIT] Canceled by user..."     >> ${log_file}
+  exit 3
+fi
+echo "<bootloader>      ${BOOT_IMG}"    >> ${log_file}
+### [SRC] filesystem folder ------------------------------------------
+src=$(zenity --title="Select/Confirm iAP LinuxFS SOURCE directory..." \
+--file-selection --directory \
+--filename="${iAP_FS_PATH}";)
+if [[ "$src" = "" ]]; then
+  echo "[EXIT] Canceled by user..."     >> ${log_file}
+  exit 3
+fi
+SRC="${src}/"
+echo "<linuxFS>         ${SRC}*"        >> ${log_file}
+### [SHPI_REL] folder ------------------------------------------------
+### TODO: completare in base a come verrà organizzata la cartella [releases] su GitHub
+###       sarebbe furbo avere anche una versione SHPI con un enviroment vuoto o basilare
+###       da usare come default per poi usare <rswap-shpi>...
+shpi_rel=$(zenity --title="Select/Confirm iAP SHPI releases directory..." \
+--file-selection --directory \
+--filename="${iAP_SHPI_PATH}/releases";)
+if [[ "$shpi_rel" = "" ]]; then
+  echo "[EXIT] Canceled by user..."     >> ${log_file}
+  exit 3
+fi
+SHPI_REL="${shpi_rel}/"
+echo "<SHPI releases>   ${SHPI_REL}*"   >> ${log_file}
+
+################################################################################
+#zenity --text-info --title="${title_dialog}" --width=900 --height=500 --font="Ubuntu Mono" --filename="${log_file}"
+#exit
+
+#ls -la | grep "^d" && ls -la | grep "^-" && ls -la | grep "^l"
+
+#search_script_path=$(find -type f -name 'mmc-build' 2>/dev/null | head -c -10 | cut -d'.' -f2)
+#script_path="$actual_path""$search_script_path"
+
+#linuxFS_path=$
+#zenity --info --text="$SCRIPT_PATH";
+
+#src=$(zenity --file-selection --filename="$iAP_FS_PATH/" --directory --title="Select SOURCE directory...";)
+#SRC="$src/"
+#echo $SRC
+
+################################################################################
+tot_files=$(( $(find ${SRC} | wc -l) -1 ))                  # Total files in folder
+git_files=$(( $(find ${SRC}.git/ | wc -l) ))                # GIT folder only files (to exclude)
+nrc_files=$(find ${SRC} -maxdepth 1 -type f | wc -l)        # Base folder only, no recurse files (to exclude)
+
+iap_files=$((tot_files - (git_files + nrc_files) ))         # <iap-linuxFS> total files
+
+################################################################################
+#zenity --info --text="$iap_files";
+
+#find -type f -name 'mmc-build.desktop' 2>/dev/null
+
+#giust_files=$(( $(find /home/sanco/Scrivania/iAP-develop/linuxFS/back-up/iap-linuxFS/ | wc -l) -1 )) 
+#zenity --info --text="$giust_files";
+
+#echo 
+#read -p "Press any key to continue..."
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+
+#SIZE_NULL=$(wc -c < ${NULL_IMG})
+#SIZE_NULL_INC=$((SIZE_NULL + 1))
+SIZE_NULL=25
+SIZE_NULL_INC=26214400
+### Source Filesystem Size -------------------------------------------
+dim_files=$(du -bx --summarize ${SRC} | cut -d "/" -f1)
+#size_tot_GiB="$(bc <<< "scale=2; $(du -xB1M --summarize ${SOURCES} | cut -d "/" -f1) /1000") GiB"
+
+
+### from subshell mtab read was confined locally (so eval global) --------------
+#MNT_DEST=$(cat $tmp_file)
+tmp_file="/tmp/mmc_build_gtk.tmp"
+
+### Discover MMC Card Reader Hardware ------------------------------------------
+sdhci_test=$(lsblk --output NAME,HOTPLUG,RM,TYPE | grep -m1 "1  0 disk" | cut -d " " -f1)
+scsi_test=$(lsblk --output NAME,HOTPLUG,RM,TYPE | grep -m1 "1  1 disk" | cut -d " " -f1)
+
+### Hardware is [sdhci_pci] or [mmc_block] ---------------------------
+if [ ! -z "$sdhci_test" ] && [ -z "$scsi_test" ]; then
+  hw_method=1
+  hw_label="SDHCI"
+  sdhci_blk="/dev/$sdhci_test"
+  MMC_DEVICE=${sdhci_blk}
+  MMC_P1="${sdhci_blk}p1"
+### Hardware is [scsi] -----------------------------------------------
+elif [ -z "$sdhci_test" ] && [ ! -z "$scsi_test" ]; then
+  hw_method=2
+  hw_label="SCSI"
+  scsi_blk="/dev/$scsi_test"
+  MMC_DEVICE=${scsi_blk}
+  MMC_P1="${scsi_blk}1"
+### Hardware NOT Found !!! -------------------------------------------
+else
+  hw_method=0
+  hw_label="none"
+fi
+
+### Compute MMC Block Dimension ------------------------------------------------
+### (use Gibibyte / Mebibyte IEC binary prefixes standard)
+### only if hardware method was defined...
+if [[ hw_method != '0' ]]; then
+######################################################################
+### physical ---------------------------------------------------------
+  MMC_SIZE=$(blockdev --getsize64 $MMC_DEVICE)
+  MMC_SIZE_INC=$((MMC_SIZE + 1))
+  MMC_IEC=$(($MMC_SIZE / 1048576))
+
+######################################################################
+### partition offset -------------------------------------------------
+  part_offset=10
+### partition dimension limits ---------------------------------------
+  min_size=1792
+  max_size=8192
+### round dimension to nearest integer -------------------------------
+### use 128, 256 or 512 MByte
+  round=256
+### compute requested dimension (with 2% margin) ---------------------
+  mmc_margin=$(( (${MMC_IEC}/100)*2 ))
+  mmc_min_rq=$(( ${MMC_IEC} - ${mmc_margin} - ${part_offset} ))
+  part_size=$(( (${mmc_min_rq}/${round})*${round} ))
+### set partition size -----------------------------------------------
+  if   (( $part_size < $min_size )); then
+    low_space=1
+  elif (( $part_size >= $min_size && $part_size < $max_size )); then
+    part_end=$(( ${part_size}+${part_offset} ))
+  else
+    part_end=$(( ${max_size}+${part_offset} ))
+    part_size=${max_size}
+  fi
+
+######################################################################
+### dimension used for visuals dialog --------------------------------
+  IEC_part=$(bc <<< "scale=2; ${part_size}/1024")
+  IEC_size=$(bc <<< "scale=2; ${MMC_IEC}/1024")
+  SI_size=$(bc <<< "scale=2; ${MMC_SIZE}/1000000000")
+###
+fi
+### ----------------------------------------------------------------------------
+
+################################################################################
+### FUNCTIONS
+################################################################################
+### Welcome Message ------------------------------------------------------------
+#welcome_message(){}
+
+### EXIT: Root Privileges needed -----------------------------------------------
+su_check(){
+if [ `id -u` != 0 ]; then
+  zenity --width=458 --height=180 --window-icon=error --error \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\n<b>Root Privileges needed!</b>\n\
+<i>\n  You need Superuser privileges to run this program</i>\
+<i>\n  log as [root] and try again...</i>" \
+--ok-label="Exit";
+  exit 1
+fi
+}
+
+### EXIT: Hardware not Found ---------------------------------------------------
+not_found_exit(){
+zenity --width=458 --height=180 --window-icon=error --error \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\n<b>MMC block device not found!</b>\n\
+<i>\n  Please check that microSD memory card was inserted</i>\
+<i>\n  and/or MMC card reader is fully functional.</i>" \
+--ok-label="Exit";
+exit 1
+}
+
+### EXIT: Low MMC Dimension ----------------------------------------------------
+low_space_exit(){
+  zenity --width=458 --height=180 --window-icon=error --error \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\n<b>MMC block device is too small!</b>\n\
+<i>\n  Please note that microSD memory card inserted is too small;</i>\
+<i>\n  a bare minimum dimension of 2GB is required.</i>" \
+--ok-label="Exit";
+  exit 2
+}
+
+### HW Discover Need to be Verified by User ------------------------------------
+request_verify_mmc(){
+  if [[ $hw_label = "none" ]]; then
+    not_found_exit;
+  fi
+  if [[ $low_space = '1' ]]; then
+    low_space_exit;
+  fi
+  zenity --width=470 --height=180 --window-icon=question --info \
+--icon-name=gparted \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\n<b>Please verify the informations...</b>\n\
+<i>\n  Physical MMC device mapped on <b>${hw_label}</b> hardware will be used,</i>\
+<i>\n  all data present on target memory card of <b>${SI_size}GB</b> will be lost.</i>\
+<span size='xx-small' weight='normal'>\n \
+\n  </span><span size='x-large' weight='normal' letter_spacing='1536' color='#F00700B0'>${sp05}<tt>${MMC_DEVICE}</tt>\
+${sp05}<span size='medium' rise='3072' color='#F00700C0'>[${IEC_part} GiB target]</span></span>" \
+--extra-button="Exit" \
+--ok-label="${sp50}Proceed${sp50}"; value=$(echo $?)
+
+  if [[ "$value" = "1" ]]; then
+    exit 3
+  fi
+}
+
+### Request Operative Mode for Fill Pattern ------------------------------------
+request_op_mode(){
+  action=$(zenity --width=470 --height=180 --window-icon=question --info \
+--icon-name=dialog-question \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\nPerform <b>Full</b> or <b>Partial</b> fill pattern?\n\
+<i>\n  Please note that ZER0 fill write operation may be very slow;</i>\
+<i>\n  performing over the entire MMC block device was suggested${sp05}</i>\
+<i>\n  for maintenance reason only...</i>" \
+--extra-button="Full" \
+--ok-label="${sp50}Partial${sp50}"); value=$(echo $?)
+
+  if [[ "$value" = "1" ]]; then
+    if [[ "$action" = "Full" ]]; then
+      echo "full"
+    else
+      echo "abort"
+      exit 3
+    fi
+  else
+    echo "partial"
+  fi
+}
+
+### We need Summary Dialog ??? -------------------------------------------------
+
+### Partial Fill Pattern -------------------------------------------------------
+fill_zer0_partial(){
+  umount $MMC_P1 >/dev/null 2>&1
+  sleep 1
+  (dd bs=1M if=/dev/zero count=$SIZE_NULL | pv -s $SIZE_NULL_INC -n | dd bs=1M of=$MMC_DEVICE oflag=sync) 2>&1
+  echo "#Done.\n\n"
+  sleep .5
+  sync && sync
+  echo -n 100
+}
+
+### Full Fill Pattern ----------------------------------------------------------
+fill_zer0_full(){
+  umount $MMC_P1 >/dev/null 2>&1
+  sleep 1
+  (dd bs=1M if=/dev/zero | pv -s $MMC_SIZE_INC -n | dd bs=1M of=$MMC_DEVICE oflag=sync) 2>&1
+  echo "#Done.\n\n"
+  sleep .5
+  sync && sync
+  echo -n 100
+}
+
+### Main Dialog Fill Pattern ---------------------------------------------------
+fill_zer0(){
+  if [ ${op_mode} = "partial" ]; then
+    fill_zer0_partial | zenity --progress --width=550 --no-cancel --auto-close \
+--title="${title_dialog}" \
+--text="Performing Partial Zero Fill [0x00] \
+\n  please wait...\n" \
+--percentage="0";
+  elif [ ${op_mode} = "full" ]; then
+    fill_zer0_full | zenity --progress --width=550 --no-cancel --auto-close \
+--title="${title_dialog}" \
+--text="Performing Full Zero Fill [0x00] \
+\n  this operation will take a while, please wait...\n" \
+--percentage="0";
+  else
+    exit 4
+  fi
+}
+
+### Part_FS: Copy Boot Sectors, Create and Tune Partition ----------------------
+### - take care of operations order !!!
+make_fs_core(){
+# --------------------------------------------------------------------
+  echo "#Creating global partition table MBR...\n\n"
+  parted $MMC_DEVICE mktable msdos
+  sleep 1
+  partprobe $MMC_DEVICE
+  sleep 1
+  sync
+# --------------------------------------------------------------------
+  echo "#Trasferring Boot Sectors and Kernel...\n\n"
+  dd bs=1k skip=1 seek=1 if=$BOOT_IMG of=$MMC_DEVICE oflag=sync >/dev/null
+  sync && sync
+  sleep 2
+  partprobe $MMC_DEVICE
+  sync
+# --------------------------------------------------------------------
+  echo "#Creating [ext4] partition of ${IEC_part} GiB...\n\n"
+  parted --align optimal $MMC_DEVICE mkpart primary ext4 ${part_offset}MiB ${part_end}Mib
+  sleep 2
+  partprobe $MMC_DEVICE
+  sync
+  mkfs.ext4 -F -L "iap-linuxFS" $MMC_P1
+  sleep 2
+  sync
+# --------------------------------------------------------------------
+  echo "#Setting-Up Partition check limit and data journaling...\n\n"
+  tune2fs -c 100 -i 12m $MMC_P1 >/dev/null
+  sleep 1
+  tune2fs -O has_journal -o journal_data $MMC_P1
+  sync && sync
+  sleep 2
+}
+
+### Part_FS: Progress Dialog ---------------------------------------------------
+make_fs(){
+  make_fs_core | zenity --progress --width=550 --no-cancel --auto-close --pulsate \
+--title="${title_dialog}" \
+--text="Preparation...\n\n" \
+--percentage="0";
+}
+
+### Mount Automagically [iap-linuxFS] ------------------------------------------
+automount_core(){
+# --------------------------------------------------------------------
+  echo "#Automount [iap-linuxFS] partition...\n  ${hw_label} hardware rescan\n"
+### mtab check init ----------------------------------------
+  mtab="/etc/mtab"
+  check1=$(md5sum "$mtab")
+### remount for superuser (hw indipendent) -----------------
+### most safe case for newly kernel !!!
+#  udisksctl mount -b $MMC_P1
+### sdhci_pci ----------------------------------------------
+### <gvfs> may interfere so mantain hw module method
+  if [[ $hw_method -eq 1 ]]; then
+    modprobe -r sdhci_pci
+    modprobe -r mmc_block
+    sleep 1
+    modprobe sdhci_pci
+    modprobe mmc_block
+    sleep 1
+  fi
+### old scsi -----------------------------------------------
+#  if [[ $hw_method -eq 2 ]]; then
+#    echo "scsi remove-single-device 3 0 0 4" > /proc/scsi/scsi
+#    sleep 1
+#    echo "scsi add-single-device 3 0 0 4" > /proc/scsi/scsi
+#    #echo 1 > /sys/class/scsi_device/3:0:0:4/device/rescan
+#    sleep 1
+#  fi
+### scsi ---------------------------------------------------
+  if [[ $hw_method -eq 2 ]]; then
+    su -c 'udisksctl mount -b '$MMC_P1'' - sanco
+    sleep 1
+  fi
+### mtab watcher -------------------------------------------
+  sync
+  for (( time=0; time<=10; time++ ))
+    do
+      sleep 1
+      check2=$(md5sum "$mtab")
+      if [ "$check1" != "$check2" ] ; then
+        break
+      fi
+    done
+### Auto-Discover Mount Point ------------------------------
+### export to a temporary file -----------------------------
+  MNT_DEST=$(cat $mtab | grep iap-linuxFS | cut -d " " -f2)
+  echo $MNT_DEST > $tmp_file
+  if [[ ${MNT_DEST:+1} ]]; then
+    echo "#Mount point Found at <${MNT_DEST}>\n\n"
+  else
+    echo "#Mount point NOT Found !!!\n\n"
+  fi
+  sleep .25
+}
+
+### Automount Progress Dialog --------------------------------------------------
+automount_gtk(){
+  automount_core | zenity --progress --width=550 --no-cancel --auto-close --pulsate \
+--title="${title_dialog}" \
+--text="Preparation...\n\n" \
+--percentage="0";
+}
+
+### Test for Automount ---------------------------------------------------------
+automount_test(){
+### import mount point from temporary ----------------------
+  MNT_DEST=$(cat $tmp_file)
+### mount point found; proceed -----------------------------
+  if [[ ${MNT_DEST:+1} ]]; then
+    return 0
+  fi
+### mount point NOT found... -------------------------------
+### gtk dialog ---------------------------------------------
+  zenity --width=470 --height=180 --window-icon=warning --info \
+--icon-name=dialog-warning \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\n<b>GTK AutoMount Failed...</b>\n\
+<i>\n  Mount point not found and is required to proceed.</i>\
+<i>\n  Please attempt to manually mount [iap-linuxFS] MMC partition</i>\
+<i>\n  and strike <b>Retry</b> button when done.</i>" \
+--extra-button="Exit" \
+--ok-label="${sp50}Retry${sp50}"; value=$(echo $?)
+### evaluate actions ---------------------------------------
+  if [[ "$value" = "1" ]]; then
+    exit 3
+  else
+    return 1
+  fi
+}
+
+### Automount Loop Call --------------------------------------------------------
+automount_manager(){
+  while true;do
+    automount_gtk
+    automount_test; loop=$(echo $?)
+    if [ $loop -eq 0 ];then
+      break
+    fi
+  done
+}
+
+################################################################################
+### <awk> language program functions
+### manage output messages from <rsync> or <cp> to conform <zenity> gtk dialog
+###
+### consider cumpute percentage from sum bytes trasferred / total bytes:
+### valid for [rsync -v -- progress] stdout stream
+### RSYNC | awk '/xfr#/ {print $(NF-5)};' | awk '/[0-9]/{gsub(/,/,"")};1' | awk '{SUM+=$0} END {print SUM}'
+###
+### Credit Link:
+### https://github.com/angryziber/rsync-zenity/blob/master/rsync-zenity.sh
+################################################################################
+rsync_progress_awk="{
+if (\$0 ~ /bin|boot|dev|etc|home|lib|mnt|opt|proc|root|sbin|sys|tmp|usr|var/) {
+  if (percentage < 100) {
+    num_files++;
+    }
+  percentage=num_files/$iap_files*100;
+  print \"#Please wait while trasferring [iap-linuxFS] filesystem...\\\n \" num_files \"/\" $iap_files \" files\\\n \" percentage \"%\";
+  print percentage \"%\";
+  }
+fflush();
+}
+END {
+print \"#Done. \\\n \" $iap_files \" files trasferred successfully!\\\n \";
+print system(\"sleep 1\");
+print \"100\"
+}"
+################################################################################
+cp_progress_awk="{
+if (NR > 0) {
+  if (percentage < 100) {
+    num_files=NR;
+    }
+  percentage=num_files/$iap_files*100;
+  print \"#Please wait while trasferring [iap-linuxFS] filesystem...\\\n \" num_files \"/\" $iap_files \" files\\\n \" percentage \"%\";
+  print percentage \"%\";
+  }
+fflush();
+}
+END {
+print \"#Done. \\\n \" $iap_files \" files trasferred successfully!\\\n \";
+print system(\"sleep 1\");
+print \"100\"
+}"
+################################################################################
+
+### Xfer Filesystem using RSYNC ------------------------------------------------
+rsync_file_transfer(){
+### import DEST mount from temporary file ------------------
+  DEST=$(cat $tmp_file)
+### graphical loop -----------------------------------------
+  (sleep .5
+  for sub in bin boot dev etc lib sbin mnt sys usr opt root var proc tmp home
+    do
+    ### Loop Folder Message ------------------------------------------
+      #echo -ne "#- trasferring folder [/${sub}]\n\n"
+    ### RSYNC [handle xattr, test with --dry-run] --------------------
+      rsync -avxHAWX --numeric-ids --progress ${SRC}${sub} ${DEST}
+    ### Data Syncronization [optional <sub> commit here] -------------
+      #sync
+    done) | awk "$rsync_progress_awk" | zenity --progress --width=550 --no-cancel --auto-close \
+--title="${title_dialog}" \
+--text="Scanning...\n\n" \
+--percentage=0
+}
+
+### Xfer Filesystem using [SCP] ------------------------------------------------
+cp_file_transfer(){
+### import DEST mount from temporary file ------------------
+  DEST=$(cat $tmp_file)
+### graphical loop -----------------------------------------
+  (sleep .5
+  for sub in bin boot dev etc lib sbin mnt sys usr opt root var proc tmp home
+    do
+    ### Loop Folder Message ------------------------------------------
+      #echo -ne "#- trasferring folder [/${sub}]\n\n"
+    ### CP [handle sparse and xattr] ---------------------------------
+    ### https://wiki.archlinux.org/index.php/Sparse_file
+      cp -av --sparse=always ${SRC}${sub} ${DEST}
+    ### Data Syncronization [optional <sub> commit here] -------------
+      #sync
+    done) | awk "$cp_progress_awk" | zenity --progress --width=550 --no-cancel --auto-close \
+--title="${title_dialog}" \
+--text="Scanning...\n\n" \
+--percentage=0
+}
+
+### Syncing Filesystem ---------------------------------------------------------
+sync_fs(){
+  (sync && sync && echo -n 100) | zenity --progress --width=550 --no-cancel --auto-close --pulsate \
+--title="${title_dialog}" \
+--text="Syncronizing MMC filesystem...\n\n" \
+--percentage=0
+### remove temporary file ----------------------------------
+  rm -f $tmp_file
+}
+
+### UnMount [iap-linuxFS] ------------------------------------------------------
+unmount_manager(){
+  sync
+  #udisksctl unmount -b $MMC_P1
+  su -c 'udisksctl unmount -b '$MMC_P1'' - sanco
+  su -c 'udisksctl power-off -b '$MMC_DEVICE'' - sanco
+  sync
+}
+
+### Exit Message ---------------------------------------------------------------
+done_message(){
+  zenity --width=470 --height=180 --window-icon=info --info \
+--icon-name=user-bookmarks \
+--title="${title_dialog}" \
+--text="${sp50}${sp50}${sp50}\
+\n<b>All operations completed succesfully...</b>\n\
+<i>\n  Physical [iap-linuxFS] MMC device created on ${hw_label} hardware.</i>\
+<i>\n  Have a nice day...</i>\
+<i>\n</i>"
+}
+
+
+################################################################################
+### MAIN (GTK 3+ functional core)
+################################################################################
+###! welcome_message
+#su_check
+request_verify_mmc
+op_mode=$(request_op_mode)
+###! summary
+fill_zer0
+make_fs
+automount_manager
+#rsync_file_transfer
+cp_file_transfer
+sync_fs
+###! zerofree
+#unmount_manager
+done_message
+
+exit 0
+################################################################################
+#EOF
+
+
+
+
+exit 0
+
