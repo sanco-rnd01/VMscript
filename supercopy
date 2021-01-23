@@ -1,0 +1,75 @@
+#!/bin/bash
+
+### Dialog Window Related ------------------------------------------------------
+### gtk 3+ requires dialog windows to have a parent application window...
+###  so alias <zenity> in version 3.18.1.1
+### We may need to call: [dbus-launch] for acquire session and display
+###  for graphical applications to work correctly...
+zenity(){
+  /usr/bin/zenity "$@" 2>/dev/null
+}
+title_dialog="iap-linuxFS :: SUPERCOPY !!!"
+### spaces -----------------------------------------------------------
+### target size:500x100
+sp05="     "
+sp10="          "
+sp15=${sp05}${sp10}
+sp20=${sp10}${sp10}
+sp30=${sp15}${sp15}
+sp40=${sp20}${sp20}
+sp45=${sp40}${sp05}
+sp50=${sp10}${sp40}
+
+src=$(zenity --file-selection --filename="/home/sanco/Scrivania/iAP-develop/linuxFS/iap-linuxFS/" --directory --title="Select SOURCE directory...")
+dst=$(zenity --file-selection --filename="/home/sanco/Scrivania/iAP-develop/linuxFS/back-up/" --directory --title="Select DESTINATION directory...")
+SRC=${src}/
+DST=${dst}/
+tot_files=$(( $(find ${SRC} | wc -l) -1 ))  
+
+########################################
+cp_progress_awk="{
+if (NR > 0) {
+  if (percentage < 100) {
+    num_files=NR;
+    }
+  percentage=num_files/$tot_files*100;
+  print \"#Please wait while trasferring [iap-linuxFS] filesystem...\\\n \" num_files \"/\" $tot_files \" files\\\n \" percentage \"%\";
+  print percentage \"%\";
+  }
+fflush();
+}
+END {
+print \"#Done. \\\n \" $tot_files \" files trasferred successfully!\\\n \";
+print system(\"sleep 1\");
+print \"100\"
+}"
+########################################
+
+### Xfer Filesystem using [SCP] ------------------------------------------------
+cp_file_transfer(){
+### graphical loop -----------------------------------------
+  (sleep .5
+  for sub in bin boot dev etc lib sbin mnt sys usr opt root var proc tmp home
+    do
+    ### Loop Folder Message ------------------------------------------
+      #echo -ne "#- trasferring folder [/${sub}]\n\n"
+    ### CP [handle sparse and xattr] ---------------------------------
+    ### https://wiki.archlinux.org/index.php/Sparse_file
+      cp -avZ --sparse=never ${SRC}/${sub} ${DST}/
+    ### Data Syncronization [optional <sub> commit here] -------------
+      #sync
+    done) | awk "$cp_progress_awk" | zenity --progress --width=550 --no-cancel --auto-close \
+--title="${title_dialog}" \
+--text="Scanning...\n\n" \
+--percentage=0
+}
+
+########################################
+# MAIN
+########################################
+
+cp_file_transfer
+sync && sync
+
+exit 0
+
