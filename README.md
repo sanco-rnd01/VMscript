@@ -35,5 +35,6 @@ Release **1.31a** (23 January 2021) Demiglass
 - **Paolo Golzi**  -  [sanco-rnd01](https://github.com/sanco-rnd01)  
 - **Stefano Ruspa**  -  [sanco-rnd02](https://github.com/sanco-rnd02)  
 - **Marta Colombo**  -  [sanco-rnd03](https://github.com/sanco-rnd03)  
+- **Francesco Selvaggio**  -  [sanco-rnd04](https://github.com/sanco-rnd04)  
 
-<!-- 200525 EOF -->﻿
+<!-- 210123 EOF -->﻿
