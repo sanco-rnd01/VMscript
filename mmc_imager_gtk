@@ -2,11 +2,11 @@
 ################################################################################
 # iap-linuxFS - MMC TMP-Imager Script (gtk3 version)
 #
-# developed using Ubuntu 16.04.6 LTS
-# revision 1.02a [demiglass]
-# Paolo Golzi 2020-05-03
+# developed using Ubuntu 16.04.7 LTS
+# revision 1.02b [demiglass]
+# Paolo Golzi 2022-02-04
 #
-dbus-launch notify-send 'iap-linuxFS' 'MMC TMP-Imager rev 1.02a [GTK 3+]' \
+dbus-launch notify-send 'iap-linuxFS' 'MMC TMP-Imager rev 1.02b [GTK 3+]' \
 -i /home/sanco/.local/share/icons/buuf/fish-orange.png
 ################################################################################
 
@@ -15,7 +15,7 @@ dbus-launch notify-send 'iap-linuxFS' 'MMC TMP-Imager rev 1.02a [GTK 3+]' \
 ################################################################################
 ### Fixed Definitions ----------------------------------------------------------
 userdir=$(grep 1000 /etc/passwd | cut -f6 -d":")
-BASEDIR="${userdir}/Scrivania/iAP-develop/linuxFS"
+BASEDIR="${userdir}/iAP-develop/linuxFS"
 TRUST="${BASEDIR}/iap-linuxFS/"
 TMPDIR="${BASEDIR}/tmp"
 rfc_date=$(date --rfc-3339=s | sed 's/ /_/' | cut -c1-19)
@@ -52,7 +52,7 @@ tot_files=$(( $(find ${SOURCES} | wc -l) -1 ))              # exclude first recu
 zenity(){
   /usr/bin/zenity "$@" 2>/dev/null
 }
-title_dialog="iap-linuxFS :: mmc tmp-imager 1.02a"
+title_dialog="iap-linuxFS :: mmc tmp-imager 1.02b"
 ### spaces -----------------------------------------------------------
 ### target size:500x100
 sp05="     "

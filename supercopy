@@ -20,8 +20,8 @@ sp40=${sp20}${sp20}
 sp45=${sp40}${sp05}
 sp50=${sp10}${sp40}
 
-src=$(zenity --file-selection --filename="/home/sanco/Scrivania/iAP-develop/linuxFS/iap-linuxFS/" --directory --title="Select SOURCE directory...")
-dst=$(zenity --file-selection --filename="/home/sanco/Scrivania/iAP-develop/linuxFS/back-up/" --directory --title="Select DESTINATION directory...")
+src=$(zenity --file-selection --filename="/home/sanco/iAP-develop/linuxFS/iap-linuxFS/" --directory --title="Select SOURCE directory...")
+dst=$(zenity --file-selection --filename="/home/sanco/iAP-develop/linuxFS/back-up/" --directory --title="Select DESTINATION directory...")
 SRC=${src}/
 DST=${dst}/
 tot_files=$(( $(find ${SRC} | wc -l) -1 ))  

@@ -2,11 +2,11 @@
 ################################################################################
 # iap-linuxFS - MMC Builder Script (gtk3 version)
 #
-# developed using Ubuntu 16.04.6 LTS
-# revision 1.31a [demiglass]
-# Paolo Golzi 2020-11-18
+# developed using Ubuntu 16.04.7 LTS
+# revision 1.31b [demiglass]
+# Paolo Golzi 2022-02-04
 #
-dbus-launch notify-send 'iap-linuxFS' 'MMC Builder rev 1.31a [GTK 3+]' \
+dbus-launch notify-send 'iap-linuxFS' 'MMC Builder rev 1.31b [GTK 3+]' \
 -i /home/sanco/.local/share/icons/buuf/lightbulb-vertical.png
 ################################################################################
 
@@ -18,7 +18,7 @@ dbus-launch notify-send 'iap-linuxFS' 'MMC Builder rev 1.31a [GTK 3+]' \
 zenity(){
   /usr/bin/zenity --name="mmc-build" "$@" 2>/dev/null
 }
-title_dialog="iap-linuxFS :: mmc builder 1.31a"
+title_dialog="iap-linuxFS :: mmc builder 1.31b"
 ### spaces -----------------------------------------------------------
 ### target size:500x100
 sp05="     "
@@ -38,7 +38,7 @@ actual_path=$(pwd)
 search_path=$(find -type d -name 'iAP-develop' 2>/dev/null | cut -d'.' -f2)
 BASE_PATH="${actual_path}${search_path}"
 ### Static Map [iAP-develop] work subfolders -----------------------------------
-iAP_BOOT_PATH="${BASE_PATH}/bootloader/iap-bootloader"
+iAP_BOOT_PATH="${BASE_PATH}/linuxFS//bootloader/iap-bootloader"
 iAP_SHPI_PATH="${BASE_PATH}/shpi/iap-SHPI"
 iAP_FS_PATH="${BASE_PATH}/linuxFS/iap-linuxFS"
 SCRIPT_PATH="${BASE_PATH}/script/VMscript"
@@ -54,7 +54,7 @@ launch_time=$(date --rfc-3339=s | cut -d'+' -f1)
 ### first echo operation redirects to file so completely destroy its content,
 ###  subsequent operations appends lines to file...
 echo "######################################################################"  > ${log_file}
-echo "# iap-linuxFS :: MMC Builder rev 1.31a [GTK 3+]" >> ${log_file}
+echo "# iap-linuxFS :: MMC Builder rev 1.31b [GTK 3+]" >> ${log_file}
 echo "# - last script execution ${launch_time}"        >> ${log_file}
 echo "######################################################################" >> ${log_file}
 echo ""  >> ${log_file}
@@ -134,7 +134,7 @@ iap_files=$((tot_files - (git_files + nrc_files) ))         # <iap-linuxFS> tota
 
 #find -type f -name 'mmc-build.desktop' 2>/dev/null
 
-#giust_files=$(( $(find /home/sanco/Scrivania/iAP-develop/linuxFS/back-up/iap-linuxFS/ | wc -l) -1 )) 
+#giust_files=$(( $(find /home/sanco/iAP-develop/linuxFS/back-up/iap-linuxFS/ | wc -l) -1 )) 
 #zenity --info --text="$giust_files";
 
 #echo 

@@ -5,7 +5,7 @@ part of SFPEU (SANCO Fire Protection Electronic Unit) Project :it:
 collection of shell scripts created to automate developers tasks on Linux Virtual Machine...  
 
 ## Version
-Release **1.31a** (23 January 2021) Demiglass  
+Release **1.31b** (04 February 2022) Demiglass  
 #### Content
 ***
 | *Shell Script* | *Functions* | *Codename* |
@@ -37,4 +37,4 @@ Release **1.31a** (23 January 2021) Demiglass
 - **Marta Colombo**  -  [sanco-rnd03](https://github.com/sanco-rnd03)  
 - **Francesco Selvaggio**  -  [sanco-rnd04](https://github.com/sanco-rnd04)  
 
-<!-- 210123 EOF -->﻿
+<!-- 220204 EOF -->﻿
