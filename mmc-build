@@ -3,10 +3,10 @@
 # iap-linuxFS - MMC Builder Script (gtk3 version)
 #
 # developed using Ubuntu 16.04.7 LTS
-# revision 1.31b [demiglass]
-# Paolo Golzi 2022-02-04
+# revision 1.31c [demiglass]
+# Paolo Golzi 2022-02-12
 #
-dbus-launch notify-send 'iap-linuxFS' 'MMC Builder rev 1.31b [GTK 3+]' \
+dbus-launch notify-send 'iap-linuxFS' 'MMC Builder rev 1.31c [GTK 3+]' \
 -i /home/sanco/.local/share/icons/buuf/lightbulb-vertical.png
 ################################################################################
 
@@ -18,7 +18,7 @@ dbus-launch notify-send 'iap-linuxFS' 'MMC Builder rev 1.31b [GTK 3+]' \
 zenity(){
   /usr/bin/zenity --name="mmc-build" "$@" 2>/dev/null
 }
-title_dialog="iap-linuxFS :: mmc builder 1.31b"
+title_dialog="iap-linuxFS :: mmc builder 1.31c"
 ### spaces -----------------------------------------------------------
 ### target size:500x100
 sp05="     "
@@ -508,6 +508,18 @@ automount_manager(){
   done
 }
 
+### change ROOTFS owner---------------------------------------------------------
+### USR 2 ROOT
+root_fs_owner(){
+  chown -R root.root   $iAP_FS_PATH
+  chown -R sanco.sanco $iAP_FS_PATH/home/sanco
+  chown -R sanco.sanco $iAP_FS_PATH/home/test
+}
+### ROOT 2 USR
+user_fs_owner(){
+  chown -R sanco.sanco $iAP_FS_PATH
+}
+
 ################################################################################
 ### <awk> language program functions
 ### manage output messages from <rsync> or <cp> to conform <zenity> gtk dialog
@@ -635,6 +647,7 @@ done_message(){
 request_verify_mmc
 op_mode=$(request_op_mode)
 ###! summary
+root_fs_owner
 fill_zer0
 make_fs
 automount_manager
@@ -642,15 +655,10 @@ automount_manager
 cp_file_transfer
 sync_fs
 ###! zerofree
+user_fs_owner
 #unmount_manager
 done_message
 
 exit 0
 ################################################################################
 #EOF
-
-
-
-
-exit 0
-
