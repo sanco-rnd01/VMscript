@@ -1,11 +1,11 @@
 # VMscript
 
-#### SANCO :: infinity-AP :: Ubuntu 16.04.6 LTS 64bit VM scripts
+#### SANCO :: infinity-AP :: Ubuntu 16.04.7 LTS 64bit VM scripts
 part of SFPEU (SANCO Fire Protection Electronic Unit) Project :it:  
 collection of shell scripts created to automate developers tasks on Linux Virtual Machine...  
 
 ## Version
-Release **1.31c** (12 February 2022) Demiglass  
+Release **1.32a** (20 February 2022) Demiglass  
 #### Content
 ***
 | *Shell Script* | *Functions* | *Codename* |
@@ -33,8 +33,8 @@ Release **1.31c** (12 February 2022) Demiglass
 
 ## Authors
 - **Paolo Golzi**  -  [sanco-rnd01](https://github.com/sanco-rnd01)  
-- **Stefano Ruspa**  -  [sanco-rnd02](https://github.com/sanco-rnd02)  
 - **Marta Colombo**  -  [sanco-rnd03](https://github.com/sanco-rnd03)  
 - **Francesco Selvaggio**  -  [sanco-rnd04](https://github.com/sanco-rnd04)  
+- **Fabiano Riccardi**  -  [sanco-rnd05](https://github.com/sanco-rnd05)  
 
-<!-- 220212 EOF -->﻿
+<!-- 220220 EOF -->﻿

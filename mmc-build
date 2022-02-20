@@ -3,10 +3,10 @@
 # iap-linuxFS - MMC Builder Script (gtk3 version)
 #
 # developed using Ubuntu 16.04.7 LTS
-# revision 1.31c [demiglass]
-# Paolo Golzi 2022-02-12
+# revision 1.32a [demiglass]
+# Paolo Golzi 2022-02-20
 #
-dbus-launch notify-send 'iap-linuxFS' 'MMC Builder rev 1.31c [GTK 3+]' \
+dbus-launch notify-send 'iap-linuxFS' 'MMC Builder rev 1.32a [GTK 3+]' \
 -i /home/sanco/.local/share/icons/buuf/lightbulb-vertical.png
 ################################################################################
 
@@ -18,7 +18,7 @@ dbus-launch notify-send 'iap-linuxFS' 'MMC Builder rev 1.31c [GTK 3+]' \
 zenity(){
   /usr/bin/zenity --name="mmc-build" "$@" 2>/dev/null
 }
-title_dialog="iap-linuxFS :: mmc builder 1.31c"
+title_dialog="iap-linuxFS :: mmc builder 1.32a"
 ### spaces -----------------------------------------------------------
 ### target size:500x100
 sp05="     "
@@ -54,7 +54,7 @@ launch_time=$(date --rfc-3339=s | cut -d'+' -f1)
 ### first echo operation redirects to file so completely destroy its content,
 ###  subsequent operations appends lines to file...
 echo "######################################################################"  > ${log_file}
-echo "# iap-linuxFS :: MMC Builder rev 1.31b [GTK 3+]" >> ${log_file}
+echo "# iap-linuxFS :: MMC Builder rev 1.32a [GTK 3+]" >> ${log_file}
 echo "# - last script execution ${launch_time}"        >> ${log_file}
 echo "######################################################################" >> ${log_file}
 echo ""  >> ${log_file}
@@ -107,38 +107,11 @@ SHPI_REL="${shpi_rel}/"
 echo "<SHPI releases>   ${SHPI_REL}*"   >> ${log_file}
 
 ################################################################################
-#zenity --text-info --title="${title_dialog}" --width=900 --height=500 --font="Ubuntu Mono" --filename="${log_file}"
-#exit
-
-#ls -la | grep "^d" && ls -la | grep "^-" && ls -la | grep "^l"
-
-#search_script_path=$(find -type f -name 'mmc-build' 2>/dev/null | head -c -10 | cut -d'.' -f2)
-#script_path="$actual_path""$search_script_path"
-
-#linuxFS_path=$
-#zenity --info --text="$SCRIPT_PATH";
-
-#src=$(zenity --file-selection --filename="$iAP_FS_PATH/" --directory --title="Select SOURCE directory...";)
-#SRC="$src/"
-#echo $SRC
-
-################################################################################
 tot_files=$(( $(find ${SRC} | wc -l) -1 ))                  # Total files in folder
 git_files=$(( $(find ${SRC}.git/ | wc -l) ))                # GIT folder only files (to exclude)
 nrc_files=$(find ${SRC} -maxdepth 1 -type f | wc -l)        # Base folder only, no recurse files (to exclude)
 
 iap_files=$((tot_files - (git_files + nrc_files) ))         # <iap-linuxFS> total files
-
-################################################################################
-#zenity --info --text="$iap_files";
-
-#find -type f -name 'mmc-build.desktop' 2>/dev/null
-
-#giust_files=$(( $(find /home/sanco/iAP-develop/linuxFS/back-up/iap-linuxFS/ | wc -l) -1 )) 
-#zenity --info --text="$giust_files";
-
-#echo 
-#read -p "Press any key to continue..."
 
 ################################################################################
 ################################################################################
@@ -322,14 +295,27 @@ request_op_mode(){
 
 ### We need Summary Dialog ??? -------------------------------------------------
 
+### change ROOTFS owner---------------------------------------------------------
+### USR 2 ROOT
+root_fs_owner(){
+  chown -R root.root   $iAP_FS_PATH
+  chown -R sanco.sanco $iAP_FS_PATH/home/sanco
+  chown -R sanco.sanco $iAP_FS_PATH/home/test
+}
+### ROOT 2 USR
+user_fs_owner(){
+  chown -R sanco.sanco $iAP_FS_PATH
+}
+
 ### Partial Fill Pattern -------------------------------------------------------
 fill_zer0_partial(){
   umount $MMC_P1 >/dev/null 2>&1
   sleep 1
   (dd bs=1M if=/dev/zero count=$SIZE_NULL | pv -s $SIZE_NULL_INC -n | dd bs=1M of=$MMC_DEVICE oflag=sync) 2>&1
   echo "#Done.\n\n"
-  sleep .5
+  sleep 1
   sync && sync
+  sleep 2
   echo -n 100
 }
 
@@ -339,8 +325,9 @@ fill_zer0_full(){
   sleep 1
   (dd bs=1M if=/dev/zero | pv -s $MMC_SIZE_INC -n | dd bs=1M of=$MMC_DEVICE oflag=sync) 2>&1
   echo "#Done.\n\n"
-  sleep .5
+  sleep 1
   sync && sync
+  sleep 2
   echo -n 100
 }
 
@@ -369,7 +356,8 @@ make_fs_core(){
 # --------------------------------------------------------------------
   echo "#Creating global partition table MBR...\n\n"
   parted $MMC_DEVICE mktable msdos
-  sleep 1
+  sleep 2
+  sync
   partprobe $MMC_DEVICE
   sleep 1
   sync
@@ -379,12 +367,15 @@ make_fs_core(){
   sync && sync
   sleep 2
   partprobe $MMC_DEVICE
+  sleep 1
   sync
 # --------------------------------------------------------------------
   echo "#Creating [ext4] partition of ${IEC_part} GiB...\n\n"
   parted --align optimal $MMC_DEVICE mkpart primary ext4 ${part_offset}MiB ${part_end}Mib
   sleep 2
+  sync
   partprobe $MMC_DEVICE
+  sleep 1
   sync
   mkfs.ext4 -F -L "iap-linuxFS" $MMC_P1
   sleep 2
@@ -392,10 +383,11 @@ make_fs_core(){
 # --------------------------------------------------------------------
   echo "#Setting-Up Partition check limit and data journaling...\n\n"
   tune2fs -c 100 -i 12m $MMC_P1 >/dev/null
-  sleep 1
-  tune2fs -O has_journal -o journal_data $MMC_P1
-  sync && sync
   sleep 2
+  sync
+  tune2fs -O has_journal -o journal_data $MMC_P1
+  sleep 2
+  sync && sync
 }
 
 ### Part_FS: Progress Dialog ---------------------------------------------------
@@ -491,6 +483,7 @@ automount_test(){
 --ok-label="${sp50}Retry${sp50}"; value=$(echo $?)
 ### evaluate actions ---------------------------------------
   if [[ "$value" = "1" ]]; then
+    user_fs_owner
     exit 3
   else
     return 1
@@ -506,18 +499,6 @@ automount_manager(){
       break
     fi
   done
-}
-
-### change ROOTFS owner---------------------------------------------------------
-### USR 2 ROOT
-root_fs_owner(){
-  chown -R root.root   $iAP_FS_PATH
-  chown -R sanco.sanco $iAP_FS_PATH/home/sanco
-  chown -R sanco.sanco $iAP_FS_PATH/home/test
-}
-### ROOT 2 USR
-user_fs_owner(){
-  chown -R sanco.sanco $iAP_FS_PATH
 }
 
 ################################################################################
