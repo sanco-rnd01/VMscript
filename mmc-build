@@ -3,10 +3,10 @@
 # iap-linuxFS - MMC Builder Script (gtk3 version)
 #
 # developed using Ubuntu 16.04.7 LTS
-# revision 1.32a [demiglass]
-# Paolo Golzi 2022-02-20
+# revision 1.32b [demiglass]
+# Paolo Golzi 2022-06-10
 #
-dbus-launch notify-send 'iap-linuxFS' 'MMC Builder rev 1.32a [GTK 3+]' \
+dbus-launch notify-send 'iap-linuxFS' 'MMC Builder rev 1.32b [GTK 3+]' \
 -i /home/sanco/.local/share/icons/buuf/lightbulb-vertical.png
 ################################################################################
 
@@ -18,7 +18,7 @@ dbus-launch notify-send 'iap-linuxFS' 'MMC Builder rev 1.32a [GTK 3+]' \
 zenity(){
   /usr/bin/zenity --name="mmc-build" "$@" 2>/dev/null
 }
-title_dialog="iap-linuxFS :: mmc builder 1.32a"
+title_dialog="iap-linuxFS :: mmc builder 1.32b"
 ### spaces -----------------------------------------------------------
 ### target size:500x100
 sp05="     "
@@ -54,7 +54,7 @@ launch_time=$(date --rfc-3339=s | cut -d'+' -f1)
 ### first echo operation redirects to file so completely destroy its content,
 ###  subsequent operations appends lines to file...
 echo "######################################################################"  > ${log_file}
-echo "# iap-linuxFS :: MMC Builder rev 1.32a [GTK 3+]" >> ${log_file}
+echo "# iap-linuxFS :: MMC Builder rev 1.32b [GTK 3+]" >> ${log_file}
 echo "# - last script execution ${launch_time}"        >> ${log_file}
 echo "######################################################################" >> ${log_file}
 echo ""  >> ${log_file}
@@ -598,6 +598,14 @@ sync_fs(){
   rm -f $tmp_file
 }
 
+### Updating FS Timestamp information ------------------------------------------
+flush_fs_timestamp(){
+  timestamp=$(date -Is | cut -d+ -f1)
+  sed -i '/usd_burning/d' ${DEST}/etc/profile.d/usd_info
+  echo export usd_burning_date=\"$timestamp\" >> ${DEST}/etc/profile.d/usd_info
+  sync
+}
+
 ### UnMount [iap-linuxFS] ------------------------------------------------------
 unmount_manager(){
   sync
@@ -635,6 +643,7 @@ automount_manager
 #rsync_file_transfer
 cp_file_transfer
 sync_fs
+flush_fs_timestamp
 ###! zerofree
 user_fs_owner
 #unmount_manager
